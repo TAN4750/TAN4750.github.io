@@ -185,46 +185,10 @@
     
     <div class="article-entry" itemprop="articleBody">
       
-        <span id="more"></span>
-<p>···<br>/*========================================<br>**蓝桥杯单片机第10届省赛：频率测量与电压控制<br>**编程模式：I/O模式<br>**作者信息：重庆对外经贸学院 谭朋<br>*<em>设计时间：2022-1-13<br>========================================</em>/<br>#include &lt;STC15F2K60S2.H&gt;<br>#include “iic.h”<br>#define uchar unsigned char<br>#define uint unsigned int</p>
-<p>sbit S7=P3^0;<br>sbit S6=P3^1;<br>sbit S5=P3^2;<br>sbit S4=P3^3;</p>
-<p>uint dat_v=0;  //电压数据<br>uint dat_f=0;  //频率数据<br>uchar dat_rb2=0;  //电位器rb2电压采样数据<br>uint count_f=0;  //NE555频率计数<br>uchar count_t=0;  //定时中断计数</p>
-<p>bit F_UORF=0;  //电压和频率显示切换标志<br>bit F_GORB=0;  //电压固定和变化输出标志<br>bit F_SMG=0;  //数码管显示标志<br>bit F_LED=0;  //LED显示标志<br>bit F_ADC=0;  //电压数据刷新标志</p>
-<p>uchar code SMG_duanma[19]={0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,<br>                           0x80,0x90,0x88,0x80,0xc6,0xc0,0x86,0x8e,<br>                           0xbf,0x7f,0xc1};  //共阳数码管段码 0<del>9,A</del>F,’-‘,’.’,U<br>uchar code SMG_fuma[10]={0x40,0x79,0x24,0x30,0x19,0x12,0x02,0x78,0x00,0x10};  //共阳数码管符码 0~9</p>
-<p>/<em>==========选通锁存器函数==========</em>/<br>void SelectHC573(uchar channel)<br>{<br>    switch(channel)<br>    {<br>        case 4:<br>            P2=(P2&amp;0x1f)|0x80;<br>        break;<br>        case 5:<br>            P2=(P2&amp;0x1f)|0xa0;<br>        break;<br>        case 6:<br>            P2=(P2&amp;0x1f)|0xc0;<br>        break;<br>        case 7:<br>            P2=(P2&amp;0x1f)|0xe0;<br>        break;<br>        case 0:<br>            P2=(P2&amp;0x1f)|0x00;<br>        break;<br>    }<br>}</p>
-<p>/<em>==========ADC采样函数==========</em>/<br>void Read_ADC()<br>{<br>    IIC_Start();<br>    IIC_SendByte(0x90);  //设备写地址<br>    IIC_WaitAck();<br>    IIC_SendByte(0x43);  //ADC电压采样设置<br>    IIC_WaitAck();<br>    IIC_Stop(); </p>
-<pre><code>IIC_Start();
-IIC_SendByte(0x91);  //设备读地址
-IIC_WaitAck();
-dat_rb2=IIC_RecByte();  //读取电位器rb2电压采样数据
-IIC_SendAck(1);
-IIC_Stop();
-
-dat_v=2*dat_rb2;  //计算实际的电压数据
-</code></pre>
-<p>}</p>
-<p>/<em>==========DAC输出函数==========</em>/<br>void Write_DAC(uchar dat)<br>{<br>    IIC_Start();<br>    IIC_SendByte(0x90);  //设备写地址<br>    IIC_WaitAck();<br>    IIC_SendByte(0x40);  //DAC电压输出设置<br>    IIC_WaitAck();<br>    IIC_SendByte(dat);  //设置电压输出参数<br>    IIC_WaitAck();<br>    IIC_Stop();<br>}</p>
-<p>/<em>==========定时器初始化函数==========</em>/<br>void InitTimer()<br>{<br>    TMOD=0x16;  //定时器0计数，定时器1定时<br>    TH0=0xff;<br>    TL0=0xff;<br>    TH1=(65535-50000)/256;<br>    TL1=(65535-50000)%256;<br>    EA=1;<br>    ET0=1;<br>    ET1=1;<br>    TR0=1;<br>    TR1=1;<br>}</p>
-<p>/<em>==========定时器0中断服务函数==========</em>/<br>void ServiceTimer0() interrupt 1<br>{<br>    count_f++;<br>}</p>
-<p>/<em>==========定时器1中断服务函数==========</em>/<br>void ServiceTimer1() interrupt 3<br>{<br>    count_t++;<br>    if(count_t==20)  //每1秒刷新频率数据<br>    {<br>        dat_f=count_f;<br>        count_t=0;<br>        count_f=0;<br>    }<br>    if(count_t%10==0)  //每0.5秒刷新电压数据<br>    {<br>        F_ADC=~F_ADC;<br>    }<br>}</p>
-<p>/<em>==========ADC采样和DAC输出函数==========</em>/<br>void ADC_DAC()<br>{<br>    if(F_ADC==0)<br>    {<br>        Read_ADC();<br>    }<br>    else<br>    {<br>        if(F_GORB==0)  //DAC输出固定电压2V<br>        {<br>            Write_DAC(102);<br>        }<br>        else  //DAC输出电压随电位器rb2变化<br>        {<br>            Write_DAC(dat_rb2);<br>        }<br>    }<br>}</p>
-<p>/<em>==========延时函数==========</em>/<br>void DelaySMG(uint t)<br>{<br>    while(t–);<br>}</p>
-<p>/<em>==========数码管位显示函数==========</em>/<br>void DisplaySMG_Bit(uchar pos,uchar value)<br>{<br>    P0=0xff;  //位消影<br>    SelectHC573(6);<br>    P0=0x01&lt;&lt;pos;<br>    SelectHC573(7);<br>    P0=value;<br>}</p>
-<p>/<em>==========关闭所有数码管函数==========</em>/<br>void DisplaySMG_OFF()<br>{<br>    SelectHC573(6);<br>    P0=0xff;<br>    SelectHC573(7);<br>    P0=0xff;<br>}</p>
-<p>/<em>==========数码管显示电压数据函数==========</em>/<br>void DisplaySMG_U()<br>{<br>    DisplaySMG_Bit(0,SMG_duanma[18]);<br>    DelaySMG(100);<br>    DisplaySMG_Bit(5,SMG_fuma[(dat_v/100)%10]);<br>    DelaySMG(100);<br>    DisplaySMG_Bit(6,SMG_duanma[(dat_v/10)%10]);<br>    DelaySMG(100);<br>    DisplaySMG_Bit(7,SMG_duanma[dat_v%10]);<br>    DelaySMG(100);<br>}</p>
-<p>/<em>==========数码管显示频率数据函数==========</em>/<br>void DisplaySMG_F()<br>{<br>    DisplaySMG_Bit(0,SMG_duanma[15]);<br>    DelaySMG(100);<br>    if(dat_f&gt;99999)<br>    {<br>        DisplaySMG_Bit(2,SMG_duanma[(dat_f/100000)%10]);<br>        DelaySMG(100);<br>    }<br>    if(dat_f&gt;9999)<br>    {<br>        DisplaySMG_Bit(3,SMG_duanma[(dat_f/10000)%10]);<br>        DelaySMG(100);<br>    }<br>    if(dat_f&gt;999)<br>    {<br>        DisplaySMG_Bit(4,SMG_duanma[(dat_f/1000)%10]);<br>        DelaySMG(100);<br>    }<br>    if(dat_f&gt;99)<br>    {<br>        DisplaySMG_Bit(5,SMG_duanma[(dat_f/100)%10]);<br>        DelaySMG(100);<br>    }<br>    if(dat_f&gt;9)<br>    {<br>        DisplaySMG_Bit(6,SMG_duanma[(dat_f/10)%10]);<br>        DelaySMG(100);<br>    }<br>    DisplaySMG_Bit(7,SMG_duanma[dat_f%10]);<br>    DelaySMG(100);<br>}</p>
-<p>/<em>==========数码管显示函数==========</em>/<br>void DisplaySMG()<br>{<br>    if(F_SMG==0)<br>    {<br>        if(F_UORF==0)<br>        {<br>            DisplaySMG_U();<br>        }<br>        else<br>        {<br>            DisplaySMG_F();<br>        }<br>    }<br>    else<br>    {<br>        DisplaySMG_OFF();<br>    }<br>}</p>
-<p>/<em>==========LED显示电压数据函数==========</em>/<br>void DisplayLED_U()<br>{<br>    SelectHC573(0);<br>    if(dat_v&lt;150)<br>    {<br>        P0|=0x04;<br>    }<br>    else if(dat_v&lt;250)<br>    {<br>        P0&amp;=<del>0x04;<br>    }<br>    else if(dat_v&lt;350)<br>    {<br>        P0|=0x04;<br>    }<br>    else<br>    {<br>      P0&amp;=</del>0x04;<br>    }<br>  SelectHC573(4);<br>}</p>
-<p>/<em>==========LED显示频率数据函数==========</em>/<br>void DisplayLED_F()<br>{<br>    SelectHC573(0);<br>    if(dat_f&lt;1000)<br>    {<br>        P0|=0x08;<br>    }<br>    else if(dat_f&lt;5000)<br>    {<br>        P0&amp;=<del>0x08;<br>    }<br>    else if(dat_f&lt;10000)<br>    {<br>        P0|=0x08;<br>    }<br>    else<br>    {<br>      P0&amp;=</del>0x08;<br>    }<br>  SelectHC573(4);<br>}</p>
-<p>/<em>==========LED显示函数==========</em>/<br>void DisplayLED()<br>{<br>    SelectHC573(0);<br>    if(F_LED==0)<br>    {<br>        if(F_UORF==0)<br>        {<br>            P0=0xfe;<br>            DisplayLED_U();<br>        }<br>        else<br>        {<br>            P0=0xfd;<br>            DisplayLED_F();<br>        }<br>        if(F_GORB==0)<br>        {<br>            P0|=0x10;<br>        }<br>        else<br>        {<br>            P0&amp;=~0x10;<br>        }<br>    }<br>    else<br>    {<br>        P0=0xff;<br>    }<br>    SelectHC573(4);<br>}</p>
-<p>/<em>==========数码管和LED显示函数==========</em>/<br>void Display()<br>{<br>    DisplaySMG();<br>    DisplayLED();<br>}</p>
-<p>/<em>==========按键扫描函数==========</em>/<br>void ScanKeys()<br>{<br>    if(S4==0)<br>    {<br>        DelaySMG(100);<br>        if(S4==0)<br>            F_UORF=<del>F_UORF;<br>            while(S4==0)<br>            {<br>                Display();<br>            }<br>    }<br>    if(S5==0)<br>    {<br>        DelaySMG(100);<br>        if(S5==0)<br>            F_GORB=</del>F_GORB;<br>            while(S5==0)<br>            {<br>                Display();<br>            }<br>    }<br>    if(S6==0)<br>    {<br>        DelaySMG(100);<br>        if(S6==0)<br>            F_LED=<del>F_LED;<br>            while(S6==0)<br>            {<br>                Display();<br>            }<br>    }<br>    if(S7==0)<br>    {<br>        DelaySMG(100);<br>        if(S7==0)<br>            F_SMG=</del>F_SMG;<br>            while(S7==0)<br>            {<br>                Display();<br>            }<br>    }<br>}</p>
-<p>/<em>==========系统初始化函数==========</em>/<br>void InitSystem()<br>{<br>    SelectHC573(4);  //关闭所有LED<br>    P0=0xff;<br>    SelectHC573(5);  //关闭蜂鸣器和继电器<br>    P0=0x00;<br>    DisplaySMG_OFF();  //关闭所有数码管</p>
-<pre><code>InitTimer();  //定时器初始化
-</code></pre>
-<p>}</p>
-<p>/<em>==========主函数==========</em>/<br>void main()<br>{<br>    InitSystem();  //系统初始化<br>    while(1)<br>    {<br>        ScanKeys();  //按键扫描<br>        ADC_DAC();  //ADC采样和DAC输出<br>        Display();  //显示数码管和LED<br>    }<br>}<br>···</p>
-
+        <h3 id="频率测量与电压控制"><a href="#频率测量与电压控制" class="headerlink" title="频率测量与电压控制"></a>频率测量与电压控制</h3>
+        
+          <a class="article-more-a" href="/2022/01/13/%E8%93%9D%E6%A1%A5%E6%9D%AF%E5%8D%95%E7%89%87%E6%9C%BA%E7%AC%AC%E5%8D%81%E5%B1%8A%E7%9C%81%E8%B5%9B%E9%A2%98/#more">more >></a>
+        
       
 
       
@@ -286,7 +250,7 @@ dat_v=2*dat_rb2;  //计算实际的电压数据
     
     <div class="article-entry" itemprop="articleBody">
       
-        <h2 id="Welcome-to-Tan’s-blog"><a href="#Welcome-to-Tan’s-blog" class="headerlink" title="Welcome to Tan’s blog!"></a>Welcome to Tan’s blog!</h2>
+        <h3 id="Welcome-to-Tan’s-blog"><a href="#Welcome-to-Tan’s-blog" class="headerlink" title="Welcome to Tan’s blog!"></a>Welcome to Tan’s blog!</h3>
         
           <a class="article-more-a" href="/2021/12/29/%E6%88%91%E7%9A%84%E7%AC%AC%E4%B8%80%E7%AF%87%E5%8D%9A%E5%AE%A2/#more">more >></a>
         
